@@ -15,14 +15,30 @@
    await click(label);
    if(!restored)await click('从零创建分身');
    await wait(()=>{const s=document.querySelector('[aria-label="分身版本"]');return s&&s.value&&!s.disabled;});
-   const id=document.querySelector('[aria-label="分身版本"]').value;
+   let id=document.querySelector('[aria-label="分身版本"]').value;
    if(restored&&id!==restored[kind])throw Error('Model version did not survive reload: '+kind);
-   ids[kind]=id;
    checks.push(kind+(restored?' saved model survives reload':' real worker initialized and saved model'));
+   if(!restored){
+    if(kind==='dual'){
+     const quantity=document.querySelector('[aria-label="训练数量"]');
+     quantity.value='1';quantity.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+    await click('开始新的训练计划');
+    if(kind==='attack'){
+     await new Promise(r=>setTimeout(r,2000));
+     window.pauseForBackground();
+    }
+    await wait(()=>{const s=document.querySelector('[aria-label="分身版本"]');return s&&!s.disabled&&s.value&&s.value!==id;},900000);
+    id=document.querySelector('[aria-label="分身版本"]').value;
+    if(kind==='attack')await wait(()=>button('继续原训练计划')&&!button('继续原训练计划').disabled);
+    checks.push(kind==='attack'?'attack real training paused and new checkpoint saved with resume available':'dual full one-batch training and before-after evaluation completed');
+   }
+   ids[kind]=id;
    if(!restored)await click('释放计算资源');
   }
-  if(!restored){localStorage.setItem('native-qa-models',JSON.stringify(ids));location.reload();return;}
-  checks.push('both network initialization and IndexedDB persistence completed');
+  if(!restored){localStorage.setItem('native-qa-models',JSON.stringify(ids));localStorage.setItem('native-qa-training-checks',JSON.stringify(checks));location.reload();return;}
+  checks.unshift(...JSON.parse(localStorage.getItem('native-qa-training-checks')||'[]'));
+  checks.push('both trained checkpoints survive WKWebView reload');
   report(true);
  }catch(error){report(false,String(error));}
 })();
