@@ -1,0 +1,89 @@
+name: Android private device test
+on:
+  push:
+    branches: [codex/android-training-test]
+    paths: ['android-training-test/**', '.github/workflows/android-private-test.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: skingway/headshot-training-private
+          ref: a718b8e3bf99d4c193c7a71a6780fb01ecc77f67
+          ssh-key: ${{ secrets.TRAINING_READ_KEY }}
+          persist-credentials: false
+          path: private-module
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@48b5f213c81028ace310571dc5ec0fbbca0b2947
+        with:
+          gradle-version: '8.11.1'
+          cache-disabled: true
+      - name: Inject private local assets
+        run: |
+          mkdir -p android-training-test/app/src/main/assets
+          cp -a private-module/site/. android-training-test/app/src/main/assets/
+      - name: Build installable test APK
+        id: compile
+        working-directory: android-training-test
+        run: |
+          gradle --no-daemon --console=plain assembleDebug assembleDebugAndroidTest > "$RUNNER_TEMP/build.log" 2>&1
+          echo 'Test APK compiled. Detailed diagnostics are retained only in encrypted form.'
+      - name: Enable device acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android WebView device validation
+        id: device
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save
+          script: cd android-training-test && gradle --no-daemon --console=plain connectedDebugAndroidTest > "$RUNNER_TEMP/device.log" 2>&1
+      - name: Encrypt test package and diagnostics for recipient
+        if: always()
+        env:
+          COMPILE_RESULT: ${{ steps.compile.outcome }}
+          DEVICE_RESULT: ${{ steps.device.outcome }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/result"
+          for f in "$RUNNER_TEMP/build.log" "$RUNNER_TEMP/device.log"; do
+            if [ -f "$f" ]; then cp "$f" "$RUNNER_TEMP/result/"; fi
+          done
+          if [ -f android-training-test/app/build/outputs/apk/debug/app-debug.apk ]; then
+            cp android-training-test/app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/result/training-test.apk"
+          fi
+          if [ -d android-training-test/app/build/outputs/androidTest-results ]; then
+            cp -r android-training-test/app/build/outputs/androidTest-results "$RUNNER_TEMP/result/"
+          fi
+          if [ -f "$HOME/.android/debug.keystore" ]; then cp "$HOME/.android/debug.keystore" "$RUNNER_TEMP/result/test-signing.keystore"; fi
+          printf '{"compile":"%s","device":"%s"}\n' "$COMPILE_RESULT" "$DEVICE_RESULT" > "$RUNNER_TEMP/result/status.json"
+          tar -czf "$RUNNER_TEMP/result.tar.gz" -C "$RUNNER_TEMP/result" .
+          openssl cms -encrypt -binary -aes-256-cbc -in "$RUNNER_TEMP/result.tar.gz" -out "$RUNNER_TEMP/device-test.p7m" -outform DER android-training-test/recipient.crt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: encrypted-device-test
+          path: ${{ runner.temp }}/device-test.p7m
+          retention-days: 3
+          if-no-files-found: error
+      - name: Remove private transient material
+        if: always()
+        run: |
+          rm -rf private-module android-training-test/app/src/main/assets "$RUNNER_TEMP/result" "$RUNNER_TEMP/result.tar.gz" "$RUNNER_TEMP/build.log" "$RUNNER_TEMP/device.log"
