@@ -1,5 +1,8 @@
 name: iPhone private device test
 on:
+  push:
+    branches: [codex/mobile-integration]
+    paths: ['.github/workflows/ios-device-test.yml']
   workflow_dispatch:
 permissions:
   contents: read
