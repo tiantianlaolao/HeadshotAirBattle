@@ -13,6 +13,8 @@ targets:
     sources:
       - path: TrainingApp.swift
       - path: LocalServer.swift
+      - path: Smoke.js
+        buildPhase: resources
       - path: build/site
         type: folder
         buildPhase: resources

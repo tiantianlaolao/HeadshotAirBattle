@@ -26,6 +26,9 @@ final class TrainingController: UIViewController, WKNavigationDelegate, WKUIDele
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
         config.userContentController.add(self, name: "nativeFiles")
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--smoke-test") { config.userContentController.add(self, name: "nativeQA") }
+        #endif
         web = WKWebView(frame: .zero, configuration: config)
         web.navigationDelegate = self; web.uiDelegate = self
         web.isOpaque = false; web.backgroundColor = view.backgroundColor
@@ -55,7 +58,22 @@ final class TrainingController: UIViewController, WKNavigationDelegate, WKUIDele
         decisionHandler(url?.scheme == "http" && url?.host == "127.0.0.1" && url?.port == Int(LocalServer.port) ? .allow : .cancel)
     }
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { webView.reload() }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--smoke-test"), let url = Bundle.main.url(forResource: "Smoke", withExtension: "js"), let script = try? String(contentsOf: url, encoding: .utf8) {
+            webView.evaluateJavaScript(script, completionHandler: nil)
+        }
+        #endif
+    }
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        #if DEBUG
+        if message.name == "nativeQA", ProcessInfo.processInfo.arguments.contains("--smoke-test"), message.frameInfo.isMainFrame {
+            if let data = try? JSONSerialization.data(withJSONObject: message.body, options: [.prettyPrinted]), let folder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+                try? data.write(to: folder.appendingPathComponent("native-qa.json"), options: .atomic)
+            }
+            return
+        }
+        #endif
         guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.host == "127.0.0.1",
               message.frameInfo.securityOrigin.port == Int(LocalServer.port),
               let data = message.body as? [String: String], let id = data["id"] else { return }
