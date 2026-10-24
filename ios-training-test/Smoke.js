@@ -25,13 +25,15 @@
     }
     await click('开始新的训练计划');
     if(kind==='attack'){
-     await new Promise(r=>setTimeout(r,2000));
+     await wait(()=>{const p=document.querySelector('.avatar-progress');return p&&p.hasAttribute('value')&&p.value>0&&p.max>=256;},900000);
      window.pauseForBackground();
     }
     await wait(()=>{const s=document.querySelector('[aria-label="分身版本"]');return s&&!s.disabled&&s.value&&s.value!==id;},900000);
     id=document.querySelector('[aria-label="分身版本"]').value;
+    const updates=parseInt(document.querySelector('.training-totals b')?.textContent||'0',10);
+    if(!(updates>0))throw Error(kind+' training saved without a weight update');
     if(kind==='attack')await wait(()=>button('继续原训练计划')&&!button('继续原训练计划').disabled);
-    checks.push(kind==='attack'?'attack real training paused and new checkpoint saved with resume available':'dual full one-batch training and before-after evaluation completed');
+    checks.push((kind==='attack'?'attack real training paused and new checkpoint saved with resume available':'dual full one-batch training and before-after evaluation completed')+'; weight updates='+updates);
    }
    ids[kind]=id;
    if(!restored)await click('释放计算资源');
