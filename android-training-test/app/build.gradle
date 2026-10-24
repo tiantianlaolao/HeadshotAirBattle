@@ -6,11 +6,19 @@ android {
         applicationId 'com.headshotairbattle.mobiletest'
         minSdk 26
         targetSdk 35
-        versionCode 2
-        versionName '0.2-integration'
+        versionCode 3
+        versionName '0.2.1-integration'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     buildTypes { release { minifyEnabled false } }
+    if (System.getenv('MOBILE_TEST_KEYSTORE_PATH')) {
+        signingConfigs.debug {
+            storeFile file(System.getenv('MOBILE_TEST_KEYSTORE_PATH'))
+            storePassword System.getenv('MOBILE_TEST_PASSWORD')
+            keyAlias 'mobiletest'
+            keyPassword System.getenv('MOBILE_TEST_PASSWORD')
+        }
+    }
     if (project.hasProperty('mobileAssetsDir')) {
         sourceSets.main.assets.srcDirs = [project.property('mobileAssetsDir')]
     }

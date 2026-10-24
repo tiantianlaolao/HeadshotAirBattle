@@ -1,10 +1,10 @@
 // Cloud simulator checks only; UI automation, no training implementation here.
 (async()=>{
  const checks=[];
- const wait=async(test,ms=90000)=>{const end=Date.now()+ms;while(Date.now()<end){if(test())return;await new Promise(r=>setTimeout(r,250));}throw Error('UI condition timed out');};
+ const wait=async(test,ms=90000)=>{const end=Date.now()+ms;while(Date.now()<end){if(localStorage.getItem('airplane-avatar-last-error-v1'))throw Error('Worker reported a runtime error');if(test())return;await new Promise(r=>setTimeout(r,250));}throw Error('UI condition timed out');};
  const button=text=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===text);
  const click=async text=>{await wait(()=>button(text)&&!button(text).disabled);button(text).click();await new Promise(r=>setTimeout(r,200));};
- const report=(pass,error)=>window.webkit.messageHandlers.nativeQA.postMessage({pass,checks,error:error||null});
+ const report=(pass,error)=>window.webkit.messageHandlers.nativeQA.postMessage({pass,checks,error:error||null,diagnostic:JSON.parse(localStorage.getItem('airplane-avatar-last-error-v1')||'null')});
  try{
   await wait(()=>document.querySelectorAll('.mobile-nav button').length===5);
   checks.push('five navigation items rendered in WKWebView');

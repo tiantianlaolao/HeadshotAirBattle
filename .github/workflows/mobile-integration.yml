@@ -47,7 +47,13 @@ jobs:
         id: android
         if: matrix.platform == 'android'
         shell: bash
+        env:
+          MOBILE_TEST_KEYSTORE: ${{ secrets.MOBILE_TEST_KEYSTORE }}
+          MOBILE_TEST_PASSWORD: ${{ secrets.MOBILE_TEST_PASSWORD }}
         run: |
+          test -n "$MOBILE_TEST_KEYSTORE"
+          printf '%s' "$MOBILE_TEST_KEYSTORE" | base64 --decode > "$RUNNER_TEMP/mobile-test.keystore"
+          export MOBILE_TEST_KEYSTORE_PATH="$RUNNER_TEMP/mobile-test.keystore"
           ASSET_ARGUMENT=$(node -e "console.log(require(process.env.RUNNER_TEMP+'/staged.json').gradleProperty)")
           cd android-training-test
           gradle --no-daemon --console=plain "$ASSET_ARGUMENT" assembleDebug > "$RUNNER_TEMP/build.log" 2>&1
@@ -110,4 +116,4 @@ jobs:
         if: always()
         shell: bash
         run: |
-          rm -rf private-module android-training-test/app/build ios-training-test/build "$RUNNER_TEMP/result" "$RUNNER_TEMP/result.tar.gz" "$RUNNER_TEMP/build.log" "$RUNNER_TEMP/device.log" "$RUNNER_TEMP/ios-launch.png"
+          rm -rf private-module android-training-test/app/build ios-training-test/build "$RUNNER_TEMP/result" "$RUNNER_TEMP/result.tar.gz" "$RUNNER_TEMP/build.log" "$RUNNER_TEMP/device.log" "$RUNNER_TEMP/ios-launch.png" "$RUNNER_TEMP/mobile-test.keystore"
