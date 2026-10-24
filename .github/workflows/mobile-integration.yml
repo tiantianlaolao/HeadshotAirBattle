@@ -1,0 +1,108 @@
+name: Mobile private integration
+on:
+  push:
+    branches: [codex/mobile-integration]
+    paths: ['android-training-test/**', 'ios-training-test/**', 'scripts/stage-mobile-assets.mjs', '.github/workflows/mobile-integration.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: android
+            os: ubuntu-latest
+          - platform: ios
+            os: macos-15
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: skingway/headshot-training-private
+          ref: cadd3e4066e67fd3ecf08d71bdcb825340795871
+          ssh-key: ${{ secrets.TRAINING_READ_KEY }}
+          persist-credentials: false
+          path: private-module
+      - name: Validate and stage private assets
+        shell: bash
+        run: |
+          node scripts/stage-mobile-assets.mjs private-module/site-mobile > "$RUNNER_TEMP/staged.json"
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        if: matrix.platform == 'android'
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@48b5f213c81028ace310571dc5ec0fbbca0b2947
+        if: matrix.platform == 'android'
+        with:
+          gradle-version: '8.11.1'
+          cache-disabled: true
+      - name: Compile Android
+        id: android
+        if: matrix.platform == 'android'
+        shell: bash
+        run: |
+          ASSET_ARGUMENT=$(node -e "console.log(require(process.env.RUNNER_TEMP+'/staged.json').gradleProperty)")
+          cd android-training-test
+          gradle --no-daemon --console=plain "$ASSET_ARGUMENT" assembleDebug > "$RUNNER_TEMP/build.log" 2>&1
+      - name: Compile iOS simulator
+        id: ios
+        if: matrix.platform == 'ios'
+        shell: bash
+        run: |
+          brew install xcodegen > "$RUNNER_TEMP/setup.log" 2>&1
+          ASSET_DIR=$(node -e "console.log(require(process.env.RUNNER_TEMP+'/staged.json').gradleProperty.slice(18))")
+          mkdir -p ios-training-test/build
+          cp -R "$ASSET_DIR" ios-training-test/build/site
+          cd ios-training-test
+          xcodegen generate > "$RUNNER_TEMP/build.log" 2>&1
+          xcodebuild -project TrainingTest.xcodeproj -scheme TrainingTest -sdk iphonesimulator -configuration Debug -derivedDataPath build/DerivedData CODE_SIGNING_ALLOWED=NO build >> "$RUNNER_TEMP/build.log" 2>&1
+      - name: Launch iOS simulator
+        id: simulator
+        if: matrix.platform == 'ios' && steps.ios.outcome == 'success'
+        shell: bash
+        run: |
+          xcrun simctl list devices available -j > "$RUNNER_TEMP/simulators.json"
+          DEVICE=$(node -e "const ds=Object.values(require(process.env.RUNNER_TEMP+'/simulators.json').devices).flat();console.log(ds.find(d=>d.name.startsWith('iPhone')).udid)")
+          xcrun simctl boot "$DEVICE" > "$RUNNER_TEMP/device.log" 2>&1
+          xcrun simctl bootstatus "$DEVICE" -b >> "$RUNNER_TEMP/device.log" 2>&1
+          xcrun simctl install "$DEVICE" ios-training-test/build/DerivedData/Build/Products/Debug-iphonesimulator/TrainingTest.app >> "$RUNNER_TEMP/device.log" 2>&1
+          xcrun simctl launch "$DEVICE" com.headshotairbattle.trainingtest >> "$RUNNER_TEMP/device.log" 2>&1
+          sleep 12
+          xcrun simctl io "$DEVICE" screenshot "$RUNNER_TEMP/ios-launch.png" >> "$RUNNER_TEMP/device.log" 2>&1
+      - name: Encrypt build and diagnostics
+        if: always()
+        shell: bash
+        env:
+          ANDROID_RESULT: ${{ steps.android.outcome }}
+          IOS_RESULT: ${{ steps.ios.outcome }}
+          SIMULATOR_RESULT: ${{ steps.simulator.outcome }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/result"
+          for f in build.log setup.log device.log ios-launch.png staged.json; do
+            if [ -f "$RUNNER_TEMP/$f" ]; then cp "$RUNNER_TEMP/$f" "$RUNNER_TEMP/result/"; fi
+          done
+          if [ -f android-training-test/app/build/outputs/apk/debug/app-debug.apk ]; then cp android-training-test/app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/result/training-test.apk"; fi
+          if [ -f "$HOME/.android/debug.keystore" ]; then cp "$HOME/.android/debug.keystore" "$RUNNER_TEMP/result/test-signing.keystore"; fi
+          if [ -d ios-training-test/build/DerivedData/Build/Products/Debug-iphonesimulator/TrainingTest.app ]; then cp -R ios-training-test/build/DerivedData/Build/Products/Debug-iphonesimulator/TrainingTest.app "$RUNNER_TEMP/result/"; fi
+          printf '{"android":"%s","ios":"%s","simulator":"%s"}\n' "$ANDROID_RESULT" "$IOS_RESULT" "$SIMULATOR_RESULT" > "$RUNNER_TEMP/result/status.json"
+          tar -czf "$RUNNER_TEMP/result.tar.gz" -C "$RUNNER_TEMP/result" .
+          openssl cms -encrypt -binary -aes-256-cbc -in "$RUNNER_TEMP/result.tar.gz" -out "$RUNNER_TEMP/mobile-${{ matrix.platform }}.p7m" -outform DER android-training-test/recipient.crt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: encrypted-mobile-${{ matrix.platform }}
+          path: ${{ runner.temp }}/mobile-${{ matrix.platform }}.p7m
+          retention-days: 3
+          if-no-files-found: error
+      - name: Clean private temporary material
+        if: always()
+        shell: bash
+        run: |
+          rm -rf private-module android-training-test/app/build ios-training-test/build "$RUNNER_TEMP/result" "$RUNNER_TEMP/result.tar.gz" "$RUNNER_TEMP/build.log" "$RUNNER_TEMP/device.log" "$RUNNER_TEMP/ios-launch.png"
