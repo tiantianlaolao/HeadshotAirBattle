@@ -50,6 +50,22 @@
   if(!restored){localStorage.setItem('native-qa-models',JSON.stringify(ids));localStorage.setItem('native-qa-training-checks',JSON.stringify(checks));location.reload();return;}
   checks.unshift(...JSON.parse(localStorage.getItem('native-qa-training-checks')||'[]'));
   checks.push('both trained checkpoints survive WKWebView reload');
+  document.querySelectorAll('.mobile-nav button')[2].click();await click('选择棋手与对手 →');
+  const select=async(label,value)=>{await wait(()=>document.querySelector(`[aria-label="${label}"]`)&&!document.querySelector(`[aria-label="${label}"]`).disabled);const s=document.querySelector(`[aria-label="${label}"]`);s.value=value;s.dispatchEvent(new Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,100));};
+  await select('自由对决局数','2');await select('自由对决观看方式','fast');
+  for(const [left,right] of [['platform','platform'],['attack','dual'],['dual','dual']]){
+   for(const [side,kind] of [['左方',left],['右方',right]]){
+    await select(side+'来源',kind==='platform'?'platform':'model');
+    if(kind!=='platform'){
+     const s=document.querySelector(`[aria-label="${side}版本"]`);
+     const option=[...s.options].find(o=>o.text.includes(kind==='attack'?'攻击CNN':'攻防CNN'));
+     if(!option)throw Error('Missing arena model choice');await select(side+'版本',option.value);
+    }
+   }
+   await click('开始自由对决');
+   await wait(()=>button('开始自由对决')&&!button('开始自由对决').disabled&&document.body.innerText.includes('对战完成 · 训练成果保持不变'),900000);
+   checks.push(left+' versus '+right+' completed two full games with runtime and saved-model hash verification');
+  }
   report(true);
  }catch(error){report(false,String(error));}
 })();
