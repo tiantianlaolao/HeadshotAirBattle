@@ -10,23 +10,23 @@
   checks.push('five navigation items rendered in WKWebView');
   const restored=JSON.parse(localStorage.getItem('native-qa-models')||'null');
   document.querySelectorAll('.mobile-nav button')[1].click();
-  await wait(()=>document.querySelector('[aria-label="新角色名称"]'));
+  await wait(()=>document.querySelector('[aria-label="新棋手名称"]'));
   if(!restored){
-   const input=document.querySelector('[aria-label="新角色名称"]');
+   const input=document.querySelector('[aria-label="新棋手名称"]');
    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'iOS 训练验证');
    input.dispatchEvent(new Event('input',{bubbles:true}));
-   await click('新建角色');
+   await click('新建棋手');
   }
   await wait(()=>[...document.querySelectorAll('.training-methods button')].some(b=>b.textContent.includes('智能式训练')&&!b.disabled));
   [...document.querySelectorAll('.training-methods button')].find(b=>b.textContent.includes('智能式训练')).click();
   const ids={};
   for(const [kind,label] of [['attack','攻击 CNN'],['dual','攻防 CNN']]){
    await click(label);
-   if(!restored)await click('从零创建分身');
+   if(!restored)await click('从零创建训练版本');
    await wait(()=>button('更换版本 / 管理')||button('收起管理'));
    if(button('更换版本 / 管理'))await click('更换版本 / 管理');
-   await wait(()=>{const s=document.querySelector('[aria-label="分身版本"]');return s&&s.value&&!s.disabled;});
-   let id=document.querySelector('[aria-label="分身版本"]').value;
+   await wait(()=>{const s=document.querySelector('[aria-label="训练版本"]');return s&&s.value&&!s.disabled;});
+   let id=document.querySelector('[aria-label="训练版本"]').value;
    if(restored&&id!==restored[kind])throw Error('Model version did not survive reload: '+kind);
    checks.push(kind+(restored?' saved model survives reload':' real worker initialized and saved model'));
    if(!restored){
@@ -39,13 +39,14 @@
      await wait(()=>{const p=document.querySelector('.avatar-progress');return p&&p.hasAttribute('value')&&p.value>0&&p.max>=256;},900000);
      window.pauseForBackground();
     }
-    await wait(()=>{const s=document.querySelector('[aria-label="分身版本"]');return s&&!s.disabled&&s.value&&s.value!==id;},900000);
-    id=document.querySelector('[aria-label="分身版本"]').value;
+    await wait(()=>{const s=document.querySelector('[aria-label="训练版本"]');return s&&!s.disabled&&s.value&&s.value!==id;},900000);
+    id=document.querySelector('[aria-label="训练版本"]').value;
     const updates=parseInt(document.querySelector('.training-totals b')?.textContent||'0',10);
     if(!(updates>0))throw Error(kind+' training saved without a weight update');
     if(kind==='attack')await wait(()=>button('继续原训练计划')&&!button('继续原训练计划').disabled);
     checks.push((kind==='attack'?'attack real training paused and new checkpoint saved with resume available':'dual full one-batch training and before-after evaluation completed')+'; weight updates='+updates);
    }
+   if(!restored){const r=JSON.parse(localStorage.getItem('mobile-training-roles-v1')).roles[0];if(r.current?.id!==id||r.current?.kind!=='model')throw Error('Saved training did not update current combat version');}
    ids[kind]=id;
    if(!restored)await click('释放计算资源');
   }
@@ -57,6 +58,12 @@
   if(!document.querySelector('[aria-label="训练数量"]')||!document.querySelector('[aria-label="评测数量"]'))throw Error('Missing original quantity controls');
   if([...document.querySelectorAll('.mobile-segment button')].some(b=>b.textContent.includes('C网络')))throw Error('Unexpected network added');
   checks.push('training workspace layout tabs, original quantities, version management and both non-C networks verified');
+  const role=JSON.parse(localStorage.getItem('mobile-training-roles-v1')).roles[0];if(role.current?.id!==restored.dual)throw Error('Browsing training history changed combat version');
+  document.querySelectorAll('.mobile-nav button')[3].click();await click('智能棋手');
+  await wait(()=>document.querySelectorAll('.chessman-card').length===1);
+  if(button('复制棋手')||button('创建棋手'))throw Error('Duplicate creation entry remains');
+  await click('赢来的棋手');await click('智能棋手');
+  checks.push('one chessman for both networks, single current combat version persists, historical selection does not change combat, three library tabs and no copy/create shortcuts');
   report(true);
  }catch(error){report(false,String(error));}
 })();
