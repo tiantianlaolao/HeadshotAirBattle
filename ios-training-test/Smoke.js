@@ -9,7 +9,16 @@
   await wait(()=>document.querySelectorAll('.mobile-nav button').length===5);
   checks.push('five navigation items rendered in WKWebView');
   const restored=JSON.parse(localStorage.getItem('native-qa-models')||'null');
-  document.querySelectorAll('.mobile-nav button')[1].click();await click('分身训练');
+  document.querySelectorAll('.mobile-nav button')[1].click();
+  await wait(()=>document.querySelector('[aria-label="新角色名称"]'));
+  if(!restored){
+   const input=document.querySelector('[aria-label="新角色名称"]');
+   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'iOS 训练验证');
+   input.dispatchEvent(new Event('input',{bubbles:true}));
+   await click('新建角色');
+  }
+  await wait(()=>[...document.querySelectorAll('.training-methods button')].some(b=>b.textContent.includes('智能式训练')&&!b.disabled));
+  [...document.querySelectorAll('.training-methods button')].find(b=>b.textContent.includes('智能式训练')).click();
   const ids={};
   for(const [kind,label] of [['attack','攻击 CNN'],['dual','攻防 CNN']]){
    await click(label);
