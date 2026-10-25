@@ -6,8 +6,8 @@ android {
         applicationId 'com.headshotairbattle.mobiletest'
         minSdk 26
         targetSdk 35
-        versionCode 8
-        versionName '0.2.6-integration'
+        versionCode 9
+        versionName '0.2.7-integration'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     buildTypes { release { minifyEnabled false } }
