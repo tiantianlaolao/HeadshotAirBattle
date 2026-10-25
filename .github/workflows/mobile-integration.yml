@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: skingway/headshot-training-private
-          ref: 4912b9de991b1477eb5c16aaf85d8d18cd99daef
+          ref: 4473715830fae388c696120c5ce3661fa27a85b4
           ssh-key: ${{ secrets.TRAINING_READ_KEY }}
           persist-credentials: false
           path: private-module
