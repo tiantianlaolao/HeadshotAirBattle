@@ -1,5 +1,6 @@
 // Cloud simulator checks only; UI automation, no training implementation here.
 (async()=>{
+ if(document.documentElement.lang!=='zh-CN'){localStorage.setItem('yijiang-language-v1','zh');location.reload();return;}
  const checks=[];
  const wait=async(test,ms=90000)=>{const end=Date.now()+ms;while(Date.now()<end){if(localStorage.getItem('airplane-avatar-last-error-v1'))throw Error('Worker reported a runtime error');if(test())return;await new Promise(r=>setTimeout(r,250));}throw Error('UI condition timed out');};
  const button=text=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===text&&b.getClientRects().length);

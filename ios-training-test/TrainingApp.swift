@@ -20,16 +20,20 @@ final class TrainingController: UIViewController, WKNavigationDelegate, WKUIDele
     private var server: LocalServer?
     private var exportID: String?
     private var exportFolder: URL?
+    private var accountBridge: AccountBridge!
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor(red: 0.04, green: 0.07, blue: 0.11, alpha: 1)
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
         config.userContentController.add(self, name: "nativeFiles")
+        accountBridge = AccountBridge(owner: self)
+        config.userContentController.add(accountBridge!, name: "nativeAccount")
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--smoke-test") { config.userContentController.add(self, name: "nativeQA") }
         #endif
         web = WKWebView(frame: .zero, configuration: config)
+        accountBridge.web = web
         web.navigationDelegate = self; web.uiDelegate = self
         web.isOpaque = false; web.backgroundColor = view.backgroundColor
         web.translatesAutoresizingMaskIntoConstraints = false

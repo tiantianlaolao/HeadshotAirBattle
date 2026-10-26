@@ -21,6 +21,10 @@ public class TrainingActivity extends Activity {
     private ValueCallback<Uri[]> fileChooser;
     private String exportId, exportText;
     private boolean exporting;
+    private AccountBridge accountBridge;
+    private boolean accountRequest(Uri u) {
+        return "https".equals(u.getScheme()) && "stampday.tybbtech.com".equals(u.getHost()) && (u.getPort()==-1||u.getPort()==443) && u.getPath()!=null && u.getPath().startsWith("/yijiang/api/auth/");
+    }
     private static final int OPEN_FILE=41, SAVE_FILE=42;
     private void exportResult(String id,String result) {
         if(web!=null) web.evaluateJavascript("window.__nativeFileResult&&window.__nativeFileResult("+JSONObject.quote(id)+","+JSONObject.quote(result)+")",null);
@@ -47,7 +51,7 @@ public class TrainingActivity extends Activity {
         web.setWebViewClient(new WebViewClient() {
             @Override public WebResourceResponse shouldInterceptRequest(WebView v,WebResourceRequest req) {
                 WebResourceResponse r=loader.shouldInterceptRequest(req.getUrl());
-                return r!=null?r:denied();
+                return r!=null?r:accountRequest(req.getUrl())?null:denied();
             }
             @Override public boolean shouldOverrideUrlLoading(WebView v,WebResourceRequest req) {
                 Uri u=req.getUrl();
@@ -59,7 +63,7 @@ public class TrainingActivity extends Activity {
         });
         ServiceWorkerController.getInstance().setServiceWorkerClient(new ServiceWorkerClient() {
             @Override public WebResourceResponse shouldInterceptRequest(WebResourceRequest req) {
-                WebResourceResponse r=loader.shouldInterceptRequest(req.getUrl()); return r!=null?r:denied();
+                WebResourceResponse r=loader.shouldInterceptRequest(req.getUrl()); return r!=null?r:accountRequest(req.getUrl())?null:denied();
             }
         });
         web.setWebChromeClient(new WebChromeClient() {
@@ -85,6 +89,12 @@ public class TrainingActivity extends Activity {
                     Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/json").putExtra(Intent.EXTRA_TITLE,name);
                     startActivityForResult(intent,SAVE_FILE);
                 } catch(Exception e){exportResult(id,"error");if(id.equals(exportId)){exportText=null;exportId=null;exporting=false;}}
+            });
+        }
+        accountBridge=new AccountBridge(this,web);
+        if(WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            WebViewCompat.addWebMessageListener(web,"nativeAccount",Collections.singleton("https://appassets.androidplatform.net"),(v,message,origin,main,reply)->{
+                if(main)accountBridge.receive(message.getData());
             });
         }
         setContentView(web);

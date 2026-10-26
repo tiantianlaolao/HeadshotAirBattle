@@ -6,8 +6,8 @@ android {
         applicationId 'com.headshotairbattle.mobiletest'
         minSdk 26
         targetSdk 35
-        versionCode 10
-        versionName '0.2.8-integration'
+        versionCode 11
+        versionName '0.2.9-integration'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     buildTypes { release { minifyEnabled false } }
@@ -26,6 +26,9 @@ android {
 }
 dependencies {
     implementation 'androidx.webkit:webkit:1.12.1'
+    implementation 'androidx.credentials:credentials:1.5.0'
+    implementation 'androidx.credentials:credentials-play-services-auth:1.5.0'
+    implementation 'com.google.android.libraries.identity.googleid:googleid:1.1.1'
     androidTestImplementation 'androidx.test:runner:1.6.2'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
 }
