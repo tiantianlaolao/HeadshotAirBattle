@@ -50,14 +50,14 @@ final class AccountBridge {
             }
             case "clear":
                 if(!prefs.edit().clear().commit())throw new IllegalStateException();
-                manager.clearCredentialStateAsync(new ClearCredentialStateRequest(),null,activity.getMainExecutor(),new CredentialManagerCallback<Void,ClearCredentialException>(){public void onResult(Void result){reply(requestId,value("ok",true));}public void onError(ClearCredentialException e){reply(requestId,value("ok",true));}});break;
+                manager.clearCredentialStateAsync(new ClearCredentialStateRequest(),null,activity::runOnUiThread,new CredentialManagerCallback<Void,ClearCredentialException>(){public void onResult(Void result){reply(requestId,value("ok",true));}public void onError(ClearCredentialException e){reply(requestId,value("ok",true));}});break;
             case "signin":{
                 if(signingIn){reply(id,value("error","busy"));break;}
                 String nonce=m.getString("nonce");if(!nonce.matches("[a-f0-9]{64}")||!m.getString("provider").equals("google"))throw new IllegalArgumentException();
                 String client=activity.getString(R.string.account_google_client_id);if(client.isEmpty()){reply(id,value("error","not_configured"));break;}
                 GetSignInWithGoogleOption option=new GetSignInWithGoogleOption.Builder(client).setNonce(nonce).build();
                 GetCredentialRequest request=new GetCredentialRequest.Builder().addCredentialOption(option).build();signingIn=true;
-                manager.getCredentialAsync(activity,request,null,activity.getMainExecutor(),new CredentialManagerCallback<GetCredentialResponse,GetCredentialException>(){
+                manager.getCredentialAsync(activity,request,null,activity::runOnUiThread,new CredentialManagerCallback<GetCredentialResponse,GetCredentialException>(){
                     public void onResult(GetCredentialResponse result){signingIn=false;try{Credential c=result.getCredential();if(!(c instanceof CustomCredential)||!GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL.equals(c.getType()))throw new IllegalArgumentException();reply(requestId,value("token",GoogleIdTokenCredential.createFrom(c.getData()).getIdToken()));}catch(Exception e){reply(requestId,value("error","invalid_identity"));}}
                     public void onError(GetCredentialException e){signingIn=false;reply(requestId,value("error",e instanceof GetCredentialCancellationException?"cancelled":"provider_error"));}
                 });break;
