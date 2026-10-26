@@ -69,6 +69,8 @@ jobs:
           cd ios-training-test
           xcodegen generate > "$RUNNER_TEMP/build.log" 2>&1
           xcodebuild -project TrainingTest.xcodeproj -scheme TrainingTest -sdk iphonesimulator -configuration Debug -derivedDataPath build/DerivedData CODE_SIGNING_ALLOWED=NO build >> "$RUNNER_TEMP/build.log" 2>&1
+          # Keychain tests need an application identity even in the simulator.
+          codesign --force --sign - --entitlements Simulator.entitlements build/DerivedData/Build/Products/Debug-iphonesimulator/TrainingTest.app >> "$RUNNER_TEMP/build.log" 2>&1
       - name: Launch iOS simulator
         id: simulator
         if: matrix.platform == 'ios' && steps.ios.outcome == 'success'
