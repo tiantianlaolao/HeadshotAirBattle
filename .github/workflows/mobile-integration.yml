@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: skingway/headshot-training-private
-          ref: 80212f12ba9868f18767b2c40836528391f88124
+          ref: 59a2287238a5ad51589f8cbafd5bbb8fcef7367b
           ssh-key: ${{ secrets.TRAINING_READ_KEY }}
           persist-credentials: false
           path: private-module
@@ -79,7 +79,7 @@ jobs:
           xcrun simctl boot "$DEVICE" > "$RUNNER_TEMP/device.log" 2>&1
           xcrun simctl bootstatus "$DEVICE" -b >> "$RUNNER_TEMP/device.log" 2>&1
           xcrun simctl install "$DEVICE" ios-training-test/build/DerivedData/Build/Products/Debug-iphonesimulator/TrainingTest.app >> "$RUNNER_TEMP/device.log" 2>&1
-          xcrun simctl launch "$DEVICE" com.headshotairbattle.trainingtest --smoke-test >> "$RUNNER_TEMP/device.log" 2>&1
+          xcrun simctl launch "$DEVICE" com.headshotairbattle.trainingtest --smoke-test --account-smoke >> "$RUNNER_TEMP/device.log" 2>&1
           CONTAINER=$(xcrun simctl get_app_container "$DEVICE" com.headshotairbattle.trainingtest data)
           for i in $(seq 1 600); do
             if [ -f "$CONTAINER/Documents/native-qa.json" ]; then cp "$CONTAINER/Documents/native-qa.json" "$RUNNER_TEMP/native-qa.json"; break; fi

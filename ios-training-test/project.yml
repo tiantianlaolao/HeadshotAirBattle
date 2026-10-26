@@ -16,6 +16,8 @@ targets:
       - path: AccountBridge.swift
       - path: Smoke.js
         buildPhase: resources
+      - path: SmokeAccount.js
+        buildPhase: resources
       - path: build/site
         type: folder
         buildPhase: resources

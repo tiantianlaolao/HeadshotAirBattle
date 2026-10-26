@@ -64,7 +64,7 @@ final class TrainingController: UIViewController, WKNavigationDelegate, WKUIDele
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { webView.reload() }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--smoke-test"), let url = Bundle.main.url(forResource: "Smoke", withExtension: "js"), let script = try? String(contentsOf: url, encoding: .utf8) {
+        if ProcessInfo.processInfo.arguments.contains("--smoke-test"), let url = Bundle.main.url(forResource: ProcessInfo.processInfo.arguments.contains("--account-smoke") ? "SmokeAccount" : "Smoke", withExtension: "js"), let script = try? String(contentsOf: url, encoding: .utf8) {
             webView.evaluateJavaScript(script, completionHandler: nil)
         }
         #endif
