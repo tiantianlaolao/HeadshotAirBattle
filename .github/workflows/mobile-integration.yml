@@ -68,9 +68,8 @@ jobs:
           cp -R "$ASSET_DIR" ios-training-test/build/site
           cd ios-training-test
           xcodegen generate > "$RUNNER_TEMP/build.log" 2>&1
-          xcodebuild -project TrainingTest.xcodeproj -scheme TrainingTest -sdk iphonesimulator -configuration Debug -derivedDataPath build/DerivedData CODE_SIGNING_ALLOWED=NO build >> "$RUNNER_TEMP/build.log" 2>&1
-          # Keychain tests need an application identity even in the simulator.
-          codesign --force --sign - --entitlements Simulator.entitlements build/DerivedData/Build/Products/Debug-iphonesimulator/TrainingTest.app >> "$RUNNER_TEMP/build.log" 2>&1
+          # Let Xcode sign every simulator executable and inject matching Keychain entitlements.
+          xcodebuild -project TrainingTest.xcodeproj -scheme TrainingTest -sdk iphonesimulator -configuration Debug -derivedDataPath build/DerivedData CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=8J6A847P66 CODE_SIGN_STYLE=Automatic CODE_SIGN_ENTITLEMENTS=Simulator.entitlements build >> "$RUNNER_TEMP/build.log" 2>&1
       - name: Launch iOS simulator
         id: simulator
         if: matrix.platform == 'ios' && steps.ios.outcome == 'success'
