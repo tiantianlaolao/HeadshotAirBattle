@@ -3,6 +3,9 @@
  const checks=JSON.parse(localStorage.getItem('native-account-checks')||'[]');
  const wait=async f=>{const end=Date.now()+60000;while(Date.now()<end){if(f())return;await new Promise(r=>setTimeout(r,100));}throw Error('Account UI timed out');};
  const button=t=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===t&&b.getClientRects().length);
+ // First load may add the shared growth ledger. Compare all existing identity,
+ // progress and current-version fields while allowing this additive migration.
+ const stableAgents=()=>{const d=JSON.parse(localStorage.getItem('mobile-training-roles-v1')||'null');if(d)d.roles=d.roles.map(({growth,...identity})=>identity);return JSON.stringify(d);};
  const report=(pass,error)=>window.webkit.messageHandlers.nativeQA.postMessage({pass,checks,error:error||null,scope:'Native secure storage, live US API and account UI; no real provider login'});
  try{
   await wait(()=>document.querySelectorAll('.mobile-nav button').length===5);
@@ -19,12 +22,12 @@
    checks.push('WKWebView reaches live US account API with CORS; unauthenticated profile rejected');
    document.querySelectorAll('.mobile-nav button')[1].click();await wait(()=>document.querySelector('[aria-label="New agent name"]'));
    const input=document.querySelector('[aria-label="New agent name"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Account QA');input.dispatchEvent(new Event('input',{bubbles:true}));await wait(()=>button('Create agent'));button('Create agent').click();await wait(()=>localStorage.getItem('mobile-training-roles-v1'));
-   localStorage.setItem('native-account-agents',localStorage.getItem('mobile-training-roles-v1'));
+   localStorage.setItem('native-account-agents',stableAgents());
   }
   document.querySelectorAll('.mobile-nav button')[4].click();await wait(()=>button(phase===1?'通过 Apple 登录':'Continue with Apple')&&!button(phase===1?'通过 Apple 登录':'Continue with Apple').disabled);
-  if(localStorage.getItem('mobile-training-roles-v1')!==localStorage.getItem('native-account-agents'))throw Error('Account screen changed local agents');
+  if(stableAgents()!==localStorage.getItem('native-account-agents'))throw Error('Account screen changed local agents');
   checks.push(phase===1?'Chinese account UI verified':'English account UI verified');
   if(phase<2){localStorage.setItem('native-account-checks',JSON.stringify(checks));localStorage.setItem('native-account-phase',String(phase+1));const select=document.querySelector('[aria-label="Language"]');await wait(()=>!select.disabled);select.value=phase===0?'zh':'en';select.dispatchEvent(new Event('change',{bubbles:true}));return;}
-  checks.push('Account page and both language reloads preserve local agent identity bytes');report(true);
+  checks.push('Account page and both language reloads preserve local identity/progress/current-version fields; additive growth migration allowed');report(true);
  }catch(e){report(false,String(e));}
 })();
