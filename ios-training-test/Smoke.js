@@ -69,7 +69,7 @@
   await click('升级挑战');if(!document.querySelector('.challenge-panel')&&!document.body.textContent.includes('幽辰'))throw Error('Missing upgrade challenge');
   await click('← 返回上一级');document.querySelectorAll('.mobile-nav button')[4].click();
   if(document.body.textContent.includes('历史模型与实验')||document.body.textContent.includes('技术详情'))throw Error('Research or technical entry exposed');
-  if(!document.querySelector('.account-panel'))throw Error('Native account UI missing');
+  await wait(()=>document.querySelector('.account-panel'));
   checks.push('unified upgrade, recruitment100/1000, back navigation, native account UI and no research entry');
   report(true);
  }catch(error){report(false,String(error));}
