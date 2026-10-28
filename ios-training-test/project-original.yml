@@ -1,0 +1,13 @@
+include:
+  - project.yml
+targets:
+  TrainingTest:
+    configFiles:
+      Debug: GoogleOriginalApp.xcconfig
+      Release: GoogleOriginalApp.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.headshotairbattle
+        CURRENT_PROJECT_VERSION: 53
+        MARKETING_VERSION: '1.1'
+        INFOPLIST_KEY_CFBundleDisplayName: Yijiang

@@ -1,0 +1,5 @@
+// Target-level OAuth settings for the original com.headshotairbattle App only.
+// Include when preparing the original-App target; do not use in .trainingtest.
+YJ_GOOGLE_IOS_CLIENT_ID = 1038575322235-ielvqe0kevhu677ctajvg03d4q1lj9ib.apps.googleusercontent.com
+YJ_GOOGLE_IOS_REVERSED_CLIENT_ID = com.googleusercontent.apps.1038575322235-ielvqe0kevhu677ctajvg03d4q1lj9ib
+YJ_GOOGLE_IOS_BUNDLE_ID = com.headshotairbattle
