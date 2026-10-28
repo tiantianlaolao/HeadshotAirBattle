@@ -35,6 +35,7 @@ final class AccountBridge: NSObject, WKScriptMessageHandler, ASAuthorizationCont
             if status == errSecItemNotFound { status = SecItemAdd(query.merging(attributes) { _, new in new } as CFDictionary, nil) }
             reply(id, status == errSecSuccess ? ["ok": true] : ["error": "storage_error"])
         case "clear":
+            GIDSignIn.sharedInstance.signOut()
             let status = SecItemDelete(query as CFDictionary)
             reply(id, status == errSecSuccess || status == errSecItemNotFound ? ["ok": true] : ["error": "storage_error"])
         case "signin":
