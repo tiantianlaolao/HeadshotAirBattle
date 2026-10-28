@@ -23,7 +23,7 @@ public class TrainingActivity extends Activity {
     private boolean exporting;
     private AccountBridge accountBridge;
     private boolean accountRequest(Uri u) {
-        return "https".equals(u.getScheme()) && "stampday.tybbtech.com".equals(u.getHost()) && (u.getPort()==-1||u.getPort()==443) && u.getPath()!=null && u.getPath().startsWith("/yijiang/api/auth/");
+        return "https".equals(u.getScheme()) && "stampday.tybbtech.com".equals(u.getHost()) && (u.getPort()==-1||u.getPort()==443) && u.getPath()!=null && u.getPath().startsWith("/yijiang/api/");
     }
     private static final int OPEN_FILE=41, SAVE_FILE=42;
     private void exportResult(String id,String result) {
