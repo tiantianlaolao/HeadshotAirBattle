@@ -36,7 +36,12 @@ final class AccountBridge {
             JSONObject m=new JSONObject(text);id=m.getString("id");if(id.length()>100)return;final String requestId=id;
             SharedPreferences prefs=activity.getSharedPreferences(KEY,Activity.MODE_PRIVATE);
             switch(m.getString("op")){
-            case "capabilities":reply(id,value("providers",new org.json.JSONArray().put("google")));break;
+            case "capabilities":reply(id,value("providers",new org.json.JSONArray().put("google").put("apple")).put("browserProviders",new org.json.JSONArray().put("apple")));break;
+            case "openApple":{
+                android.net.Uri uri=android.net.Uri.parse(m.getString("url"));
+                if(!"https".equals(uri.getScheme())||!"appleid.apple.com".equals(uri.getHost())||!"/auth/authorize".equals(uri.getPath()))throw new IllegalArgumentException();
+                activity.startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,uri));reply(id,value("ok",true));break;
+            }
             case "read":{
                 String data=prefs.getString("data",null);if(data==null){reply(id,new JSONObject());break;}
                 Cipher cipher=Cipher.getInstance("AES/GCM/NoPadding");cipher.init(Cipher.DECRYPT_MODE,key(),new GCMParameterSpec(128,Base64.decode(prefs.getString("iv",""),Base64.NO_WRAP)));

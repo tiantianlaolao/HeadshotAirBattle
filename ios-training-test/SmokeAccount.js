@@ -14,7 +14,7 @@
    const previous=window.__nativeAccountResult;let resolve;
    window.__nativeAccountResult=(id,result)=>{if(id==='qa-native-account')resolve(result);else previous?.(id,result);};
    const native=(op,data={})=>new Promise((yes,no)=>{const timer=setTimeout(()=>no(Error('Native bridge timeout')),10000);resolve=r=>{clearTimeout(timer);r.error?no(Error(r.error)):yes(r);};window.webkit.messageHandlers.nativeAccount.postMessage({id:'qa-native-account',op,...data});});
-   const cap=await native('capabilities');if(cap.providers.join(',')!=='apple')throw Error('Missing Apple provider');
+   const cap=await native('capabilities');if(cap.providers.join(',')!=='apple,google')throw Error('Missing Apple/Google providers');
    if((await native('read')).session)throw Error('QA expected isolated empty Keychain');
    const fixture=JSON.stringify({fixture:'secure-storage-only'});await native('write',{session:fixture});if((await native('read')).session!==fixture)throw Error('Keychain roundtrip failed');await native('clear');if((await native('read')).session)throw Error('Keychain clear failed');window.__nativeAccountResult=previous;
    checks.push('Native Apple bridge and Keychain write/read/delete verified in isolated simulator');

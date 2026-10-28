@@ -1,4 +1,8 @@
 name: TrainingTest
+packages:
+  GoogleSignIn:
+    url: https://github.com/google/GoogleSignIn-iOS
+    exactVersion: 9.1.0
 options:
   deploymentTarget:
     iOS: '16.0'
@@ -10,6 +14,8 @@ targets:
   TrainingTest:
     type: application
     platform: iOS
+    dependencies:
+      - package: GoogleSignIn
     sources:
       - path: TrainingApp.swift
       - path: LocalServer.swift
@@ -25,8 +31,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.headshotairbattle.trainingtest
         CODE_SIGN_ENTITLEMENTS: Account.entitlements
-        CURRENT_PROJECT_VERSION: 14
-        MARKETING_VERSION: '0.2.14'
+        CURRENT_PROJECT_VERSION: 15
+        MARKETING_VERSION: '0.2.15'
         TARGETED_DEVICE_FAMILY: '1,2'
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Training Test
@@ -35,6 +41,10 @@ targets:
     info:
       path: build/Info.plist
       properties:
+        GIDClientID: $(YJ_GOOGLE_IOS_CLIENT_ID)
+        CFBundleURLTypes:
+          - CFBundleURLSchemes:
+              - $(YJ_GOOGLE_IOS_REVERSED_CLIENT_ID)
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
         UISupportedInterfaceOrientations:

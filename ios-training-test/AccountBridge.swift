@@ -2,6 +2,7 @@ import UIKit
 import WebKit
 import AuthenticationServices
 import Security
+import GoogleSignIn
 
 // Generic native login and secure session storage. No game/model data crosses this bridge.
 final class AccountBridge: NSObject, WKScriptMessageHandler, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
@@ -20,7 +21,7 @@ final class AccountBridge: NSObject, WKScriptMessageHandler, ASAuthorizationCont
         guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "http", message.frameInfo.securityOrigin.host == "127.0.0.1", message.frameInfo.securityOrigin.port == Int(LocalServer.port),
               let data = message.body as? [String: String], let id = data["id"], id.count < 100, let op = data["op"] else { return }
         switch op {
-        case "capabilities": reply(id, ["providers": ["apple"]])
+        case "capabilities": reply(id, ["providers": ["apple", "google"]])
         case "read":
             var q = query; q[kSecReturnData as String] = true; q[kSecMatchLimit as String] = kSecMatchLimitOne
             var item: CFTypeRef?; let status = SecItemCopyMatching(q as CFDictionary, &item)
@@ -37,7 +38,19 @@ final class AccountBridge: NSObject, WKScriptMessageHandler, ASAuthorizationCont
             let status = SecItemDelete(query as CFDictionary)
             reply(id, status == errSecSuccess || status == errSecItemNotFound ? ["ok": true] : ["error": "storage_error"])
         case "signin":
-            guard pending == nil, data["provider"] == "apple", let nonce = data["nonce"], nonce.count == 64 else { reply(id, ["error": "busy"]); return }
+            guard pending == nil, let nonce = data["nonce"], nonce.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil else { reply(id, ["error": "busy"]); return }
+            if data["provider"] == "google" {
+                guard let clientID = Bundle.main.object(forInfoDictionaryKey: "GIDClientID") as? String, clientID.hasSuffix(".apps.googleusercontent.com"), let presenter = owner else { reply(id, ["error": "not_configured"]); return }
+                pending = id
+                GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID, serverClientID: "1038575322235-3cnime5g8dqdnqmlt7et824ltbc8t0uq.apps.googleusercontent.com")
+                GIDSignIn.sharedInstance.signIn(withPresenting: presenter, hint: nil, additionalScopes: nil, nonce: nonce) { [weak self] result, error in
+                    guard let self = self else { return }; self.pending = nil
+                    if let token = result?.user.idToken?.tokenString { self.reply(id, ["token": token]) }
+                    else { self.reply(id, ["error": (error as NSError?)?.code == -5 ? "cancelled" : "provider_error"]) }
+                }
+                return
+            }
+            guard data["provider"] == "apple" else { reply(id, ["error": "unsupported"]); return }
             pending = id
             let request = ASAuthorizationAppleIDProvider().createRequest(); request.requestedScopes = [.email]; request.nonce = nonce; request.state = id
             let controller = ASAuthorizationController(authorizationRequests: [request]); flow = controller
