@@ -62,7 +62,8 @@ final class AccountBridge: NSObject, WKScriptMessageHandler, ASAuthorizationCont
     func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
         guard let id = pending else { return }; defer { pending = nil; flow = nil }
         guard let c = authorization.credential as? ASAuthorizationAppleIDCredential, c.state == id, let bytes = c.identityToken, let token = String(data: bytes, encoding: .utf8) else { reply(id, ["error": "invalid_identity"]); return }
-        reply(id, ["token": token])
+        guard let codeBytes = c.authorizationCode, let code = String(data: codeBytes, encoding: .utf8), !code.isEmpty else { reply(id, ["error": "invalid_identity"]); return }
+        reply(id, ["token": token, "authorizationCode": code])
     }
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
         guard let id = pending else { return }; pending = nil; flow = nil

@@ -37,8 +37,8 @@ targets:
         CODE_SIGN_STYLE: $(YJ_SIGN_STYLE)
         PROVISIONING_PROFILE_SPECIFIER: $(YJ_PROFILE)
         "CODE_SIGN_IDENTITY[sdk=iphoneos*]": Apple Distribution
-        CURRENT_PROJECT_VERSION: 15
-        MARKETING_VERSION: '0.2.15'
+        CURRENT_PROJECT_VERSION: 16
+        MARKETING_VERSION: '0.2.16'
         TARGETED_DEVICE_FAMILY: '1,2'
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Training Test
