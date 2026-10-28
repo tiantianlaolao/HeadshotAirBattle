@@ -1,0 +1,108 @@
+name: Original App Store archive
+on:
+  push:
+    branches: [codex/mobile-integration]
+    paths: ['.github/workflows/ios-original-store.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  device:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: skingway/headshot-training-private
+          ref: 117de74581b537535810c91d231a12798fb79d59
+          ssh-key: ${{ secrets.TRAINING_READ_KEY }}
+          persist-credentials: false
+          path: private-module
+      - name: Select supported App Store Xcode
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import pathlib,plistlib,re,os
+          candidates=[]
+          for p in pathlib.Path('/Applications').glob('Xcode*.app'):
+              if p.name=='Xcode.app' or 'beta' in p.name.lower() or 'candidate' in p.name.lower(): continue
+              try:
+                  data=plistlib.loads((p/'Contents/Info.plist').read_bytes())
+                  version=tuple(int(x) for x in re.findall(r'\d+',data['CFBundleShortVersionString']))
+                  if version[0]==26:candidates.append((version,p))
+              except Exception:pass
+          if not candidates:raise RuntimeError('Xcode 26 or newer is required for App Store preparation')
+          selected=max(candidates,key=lambda x:x[0])[1]/'Contents/Developer'
+          with open(os.environ['GITHUB_ENV'],'a') as f:f.write('DEVELOPER_DIR='+str(selected)+'\n')
+          print('Selected Xcode',max(candidates,key=lambda x:x[0])[0])
+          PY
+      - name: Stage private resources
+        run: |
+          node scripts/stage-mobile-assets.mjs private-module/site-mobile > "$RUNNER_TEMP/staged.json"
+          ASSET_DIR=$(node -e "console.log(require(process.env.RUNNER_TEMP+'/staged.json').gradleProperty.slice(18))")
+          mkdir -p ios-training-test/build
+          cp -R "$ASSET_DIR" ios-training-test/build/site
+          brew install xcodegen > "$RUNNER_TEMP/setup.log" 2>&1
+      - name: Sign and export iPhone test
+        id: signing
+        env:
+          IOS_TEST_CERTIFICATE: ${{ secrets.IOS_TEST_CERTIFICATE }}
+          IOS_TEST_PASSWORD: ${{ secrets.IOS_TEST_PASSWORD }}
+          IOS_TEST_PROFILE: ${{ secrets.IOS_ORIGINAL_STORE_PROFILE }}
+          IOS_TEST_TEAM: ${{ secrets.IOS_TEST_TEAM }}
+        run: |
+          set -euo pipefail
+          test -n "$IOS_TEST_CERTIFICATE"
+          printf '%s' "$IOS_TEST_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/sign.p12"
+          printf '%s' "$IOS_TEST_PROFILE" | base64 --decode > "$RUNNER_TEMP/profile.mobileprovision"
+          security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" > "$RUNNER_TEMP/profile.plist" 2>/dev/null
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' "$RUNNER_TEMP/profile.plist")
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$RUNNER_TEMP/profile.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+          KEYCHAIN="$RUNNER_TEMP/ios-test.keychain-db"
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 24)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/sign.p12" -P "$IOS_TEST_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN" > "$RUNNER_TEMP/signing.log" 2>&1
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >> "$RUNNER_TEMP/signing.log" 2>&1
+          security list-keychains -d user -s "$KEYCHAIN"
+          cd ios-training-test
+          xcodegen generate --spec project-original.yml > "$RUNNER_TEMP/build.log" 2>&1
+          xcodebuild -project TrainingTest.xcodeproj -scheme TrainingTest -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -archivePath build/Test.xcarchive CODE_SIGNING_ALLOWED=YES YJ_SIGN_STYLE=Manual YJ_PROFILE="$PROFILE_UUID" CURRENT_PROJECT_VERSION=55 MARKETING_VERSION=1.1 archive >> "$RUNNER_TEMP/build.log" 2>&1
+          export PROFILE_UUID
+          python3 - <<'PY'
+          import os,plistlib
+          with open('build/ExportOptions.plist','wb') as f:
+              plistlib.dump({'method':'app-store-connect','teamID':os.environ['IOS_TEST_TEAM'],'signingStyle':'manual','provisioningProfiles':{'com.headshotairbattle':os.environ['PROFILE_UUID']}},f)
+          PY
+          xcodebuild -exportArchive -archivePath build/Test.xcarchive -exportPath build/export -exportOptionsPlist build/ExportOptions.plist >> "$RUNNER_TEMP/build.log" 2>&1
+          codesign --verify --deep --strict build/Test.xcarchive/Products/Applications/TrainingTest.app >> "$RUNNER_TEMP/build.log" 2>&1
+      - name: Encrypt package and diagnostics
+        if: always()
+        env:
+          SIGNING_RESULT: ${{ steps.signing.outcome }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/result"
+          for f in setup.log signing.log build.log staged.json; do
+            if [ -f "$RUNNER_TEMP/$f" ]; then cp "$RUNNER_TEMP/$f" "$RUNNER_TEMP/result/"; fi
+          done
+          if [ -f ios-training-test/build/export/TrainingTest.ipa ]; then cp ios-training-test/build/export/TrainingTest.ipa "$RUNNER_TEMP/result/training-test.ipa"; fi
+          printf '{"signing":"%s"}\n' "$SIGNING_RESULT" > "$RUNNER_TEMP/result/status.json"
+          tar -czf "$RUNNER_TEMP/result.tar.gz" -C "$RUNNER_TEMP/result" .
+          openssl cms -encrypt -binary -aes-256-cbc -in "$RUNNER_TEMP/result.tar.gz" -out "$RUNNER_TEMP/mobile-ios-store.p7m" -outform DER android-training-test/recipient.crt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: encrypted-mobile-ios-store
+          path: ${{ runner.temp }}/mobile-ios-store.p7m
+          retention-days: 3
+          if-no-files-found: error
+      - name: Clean private build material
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/ios-test.keychain-db" 2>/dev/null || true
+          rm -rf private-module ios-training-test/build android-training-test/app/build "$RUNNER_TEMP/result" "$RUNNER_TEMP/result.tar.gz" "$RUNNER_TEMP/sign.p12" "$RUNNER_TEMP/profile.mobileprovision" "$RUNNER_TEMP/profile.plist" "$HOME/Library/MobileDevice/Provisioning Profiles"

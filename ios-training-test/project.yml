@@ -51,6 +51,7 @@ targets:
     info:
       path: build/Info.plist
       properties:
+        ITSAppUsesNonExemptEncryption: false
         GIDClientID: $(YJ_GOOGLE_IOS_CLIENT_ID)
         CFBundleURLTypes:
           - CFBundleURLSchemes:

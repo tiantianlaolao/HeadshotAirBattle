@@ -21,6 +21,24 @@ jobs:
           ssh-key: ${{ secrets.TRAINING_READ_KEY }}
           persist-credentials: false
           path: private-module
+      - name: Select supported App Store Xcode
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import pathlib,plistlib,re,os
+          candidates=[]
+          for p in pathlib.Path('/Applications').glob('Xcode*.app'):
+              if p.name=='Xcode.app' or 'beta' in p.name.lower() or 'candidate' in p.name.lower(): continue
+              try:
+                  data=plistlib.loads((p/'Contents/Info.plist').read_bytes())
+                  version=tuple(int(x) for x in re.findall(r'\d+',data['CFBundleShortVersionString']))
+                  if version[0]==26:candidates.append((version,p))
+              except Exception:pass
+          if not candidates:raise RuntimeError('Xcode 26 or newer is required for App Store preparation')
+          selected=max(candidates,key=lambda x:x[0])[1]/'Contents/Developer'
+          with open(os.environ['GITHUB_ENV'],'a') as f:f.write('DEVELOPER_DIR='+str(selected)+'\n')
+          print('Selected Xcode',max(candidates,key=lambda x:x[0])[0])
+          PY
       - name: Stage private resources
         run: |
           node scripts/stage-mobile-assets.mjs private-module/site-mobile > "$RUNNER_TEMP/staged.json"

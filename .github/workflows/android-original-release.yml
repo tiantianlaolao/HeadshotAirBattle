@@ -1,0 +1,87 @@
+name: Original Android release archive
+on:
+  push:
+    branches: [codex/mobile-integration]
+    paths: ['.github/workflows/android-original-release.yml']
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: 'Original app version code, recheck Play before uploading'
+        required: true
+        default: '5'
+        type: string
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: skingway/headshot-training-private
+          ref: 117de74581b537535810c91d231a12798fb79d59
+          ssh-key: ${{ secrets.TRAINING_READ_KEY }}
+          persist-credentials: false
+          path: private-module
+      - name: Validate and stage private assets
+        shell: bash
+        run: |
+          node scripts/stage-mobile-assets.mjs private-module/site-mobile > "$RUNNER_TEMP/staged.json"
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@48b5f213c81028ace310571dc5ec0fbbca0b2947
+        with:
+          gradle-version: '8.11.1'
+          cache-disabled: true
+      - name: Compile original signed Android bundle
+        id: android
+        shell: bash
+        env:
+          YJ_UPLOAD_KEYSTORE: ${{ secrets.ANDROID_ORIGINAL_UPLOAD_KEYSTORE }}
+          YJ_ORIGINAL_UPLOAD_PASSWORD: ${{ secrets.ANDROID_ORIGINAL_UPLOAD_PASSWORD }}
+          YJ_VERSION_CODE: ${{ inputs.version_code || '5' }}
+        run: |
+          set -euo pipefail
+          [[ "$YJ_VERSION_CODE" =~ ^[0-9]+$ ]] && test "$YJ_VERSION_CODE" -gt 4
+          test -n "$YJ_UPLOAD_KEYSTORE" && test -n "$YJ_ORIGINAL_UPLOAD_PASSWORD"
+          printf '%s' "$YJ_UPLOAD_KEYSTORE" | base64 --decode > "$RUNNER_TEMP/original-upload.jks"
+          export YJ_ORIGINAL_UPLOAD_KEYSTORE_PATH="$RUNNER_TEMP/original-upload.jks"
+          ASSET_ARGUMENT=$(node -e "console.log(require(process.env.RUNNER_TEMP+'/staged.json').gradleProperty)")
+          cd android-training-test
+          gradle --no-daemon --console=plain "$ASSET_ARGUMENT" -PoriginalApp -PoriginalVersionCode="$YJ_VERSION_CODE" bundleRelease > "$RUNNER_TEMP/build.log" 2>&1
+      - name: Encrypt build and diagnostics
+        if: always()
+        shell: bash
+        env:
+          ANDROID_RESULT: ${{ steps.android.outcome }}
+          IOS_RESULT: not-applicable
+          SIMULATOR_RESULT: not-applicable
+        run: |
+          mkdir -p "$RUNNER_TEMP/result"
+          for f in build.log setup.log device.log ios-launch.png ios-training.png staged.json native-qa.json account-qa.json; do
+            if [ -f "$RUNNER_TEMP/$f" ]; then cp "$RUNNER_TEMP/$f" "$RUNNER_TEMP/result/"; fi
+          done
+          if [ -f android-training-test/app/build/outputs/bundle/release/app-release.aab ]; then cp android-training-test/app/build/outputs/bundle/release/app-release.aab "$RUNNER_TEMP/result/original-release.aab"; fi
+          if [ -f "$HOME/.android/debug.keystore" ]; then cp "$HOME/.android/debug.keystore" "$RUNNER_TEMP/result/test-signing.keystore"; fi
+          if [ -d ios-training-test/build/DerivedData/Build/Products/Debug-iphonesimulator/TrainingTest.app ]; then cp -R ios-training-test/build/DerivedData/Build/Products/Debug-iphonesimulator/TrainingTest.app "$RUNNER_TEMP/result/"; fi
+          printf '{"android":"%s","ios":"%s","simulator":"%s"}\n' "$ANDROID_RESULT" "$IOS_RESULT" "$SIMULATOR_RESULT" > "$RUNNER_TEMP/result/status.json"
+          tar -czf "$RUNNER_TEMP/result.tar.gz" -C "$RUNNER_TEMP/result" .
+          openssl cms -encrypt -binary -aes-256-cbc -in "$RUNNER_TEMP/result.tar.gz" -out "$RUNNER_TEMP/mobile-android-original.p7m" -outform DER android-training-test/recipient.crt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: encrypted-mobile-android-original
+          path: ${{ runner.temp }}/mobile-android-original.p7m
+          retention-days: 3
+          if-no-files-found: error
+      - name: Clean private temporary material
+        if: always()
+        shell: bash
+        run: |
+          rm -rf private-module android-training-test/app/build ios-training-test/build "$RUNNER_TEMP/result" "$RUNNER_TEMP/result.tar.gz" "$RUNNER_TEMP/build.log" "$RUNNER_TEMP/device.log" "$RUNNER_TEMP/ios-launch.png" "$RUNNER_TEMP/original-upload.jks"

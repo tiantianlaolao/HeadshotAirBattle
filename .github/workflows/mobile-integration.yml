@@ -57,6 +57,25 @@ jobs:
           ASSET_ARGUMENT=$(node -e "console.log(require(process.env.RUNNER_TEMP+'/staged.json').gradleProperty)")
           cd android-training-test
           gradle --no-daemon --console=plain "$ASSET_ARGUMENT" assembleDebug > "$RUNNER_TEMP/build.log" 2>&1
+      - name: Select supported App Store Xcode
+        if: matrix.platform == 'ios'
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import pathlib,plistlib,re,os
+          candidates=[]
+          for p in pathlib.Path('/Applications').glob('Xcode*.app'):
+              if p.name=='Xcode.app' or 'beta' in p.name.lower() or 'candidate' in p.name.lower(): continue
+              try:
+                  data=plistlib.loads((p/'Contents/Info.plist').read_bytes())
+                  version=tuple(int(x) for x in re.findall(r'\d+',data['CFBundleShortVersionString']))
+                  if version[0]==26:candidates.append((version,p))
+              except Exception:pass
+          if not candidates:raise RuntimeError('Xcode 26 or newer is required for App Store preparation')
+          selected=max(candidates,key=lambda x:x[0])[1]/'Contents/Developer'
+          with open(os.environ['GITHUB_ENV'],'a') as f:f.write('DEVELOPER_DIR='+str(selected)+'\n')
+          print('Selected Xcode',max(candidates,key=lambda x:x[0])[0])
+          PY
       - name: Compile iOS simulator
         id: ios
         if: matrix.platform == 'ios'
