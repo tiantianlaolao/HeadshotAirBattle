@@ -55,7 +55,7 @@
    }
    if(!restored){const r=JSON.parse(localStorage.getItem('mobile-training-roles-v1')).roles[0];if(r.current?.id!==id||r.current?.kind!=='model')throw Error('Saved training did not update current combat version');}
    ids[kind]=id;
-   if(!restored)await click('释放计算资源');
+   if(!restored)await click('释放内存');
   }
   if(!restored){localStorage.setItem('native-qa-models',JSON.stringify(ids));localStorage.setItem('native-qa-training-checks',JSON.stringify(checks));location.reload();return;}
   checks.unshift(...JSON.parse(localStorage.getItem('native-qa-training-checks')||'[]'));
