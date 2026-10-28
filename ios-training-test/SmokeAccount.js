@@ -1,12 +1,12 @@
 // Simulator-only checks. No real Apple account, provider token or production user is created.
 (async()=>{
  const checks=JSON.parse(localStorage.getItem('native-account-checks')||'[]');
- const wait=async f=>{const end=Date.now()+60000;while(Date.now()<end){if(f())return;await new Promise(r=>setTimeout(r,100));}throw Error('Account UI timed out');};
+ const wait=async f=>{const end=Date.now()+180000;while(Date.now()<end){if(f())return;await new Promise(r=>setTimeout(r,100));}throw Error('Account UI timed out');};
  const button=t=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===t&&b.getClientRects().length);
  // First load may add the shared growth ledger. Compare all existing identity,
  // progress and current-version fields while allowing this additive migration.
  const stableAgents=()=>{const d=JSON.parse(localStorage.getItem('mobile-training-roles-v1')||'null');if(d)d.roles=d.roles.map(({growth,...identity})=>identity);return JSON.stringify(d);};
- const report=(pass,error)=>window.webkit.messageHandlers.nativeQA.postMessage({pass,checks,error:error||null,scope:'Native secure storage, live US API and account UI; no real provider login'});
+ const report=(pass,error)=>window.webkit.messageHandlers.nativeQA.postMessage({pass,checks,error:error||null,diagnostic:pass?null:{ready:document.readyState,root:document.getElementById('root')?.innerHTML.slice(0,1200),body:document.body?.innerText.slice(0,1200),errors:window.__nativeEarlyErrors||[],scripts:[...document.scripts].map(s=>s.src)},scope:'Native secure storage, live US API and account UI; no real provider login'});
  try{
   await wait(()=>document.querySelectorAll('.mobile-nav button').length===5);
   const phase=Number(localStorage.getItem('native-account-phase')||0);

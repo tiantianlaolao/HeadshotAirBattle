@@ -38,6 +38,14 @@ final class TrainingController: UIViewController, WKNavigationDelegate, WKUIDele
         accountBridge = AccountBridge(owner: self)
         config.userContentController.add(accountBridge!, name: "nativeAccount")
         #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--smoke-test") {
+            let diagnostics = """
+            window.__nativeEarlyErrors=[];
+            addEventListener('error',e=>window.__nativeEarlyErrors.push(String(e.message).slice(0,1000)));
+            addEventListener('unhandledrejection',e=>window.__nativeEarlyErrors.push(String(e.reason).slice(0,1000)));
+            """
+            config.userContentController.addUserScript(WKUserScript(source: diagnostics, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        }
         if ProcessInfo.processInfo.arguments.contains("--smoke-test") { config.userContentController.add(self, name: "nativeQA") }
         #endif
         web = WKWebView(frame: .zero, configuration: config)
