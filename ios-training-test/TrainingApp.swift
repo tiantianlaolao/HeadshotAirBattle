@@ -71,6 +71,12 @@ final class TrainingController: UIViewController, WKNavigationDelegate, WKUIDele
         label.textColor = .white; label.numberOfLines = 0; label.frame = view.bounds.insetBy(dx: 24, dy: 80); view.addSubview(label)
     }
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        if action.navigationType == .linkActivated, let link = action.request.url {
+            let legalPaths = ["/agent-arena/_t/futurehub-browser-20261018-v1/training-unified-20261018-v1/rivals-20261021-v1/yijiang/privacy.html", "/agent-arena/_t/futurehub-browser-20261018-v1/training-unified-20261018-v1/rivals-20261021-v1/yijiang/terms.html", "/agent-arena/_t/futurehub-browser-20261018-v1/training-unified-20261018-v1/rivals-20261021-v1/yijiang/delete-account.html"]
+            let legal = link.scheme == "https" && link.host == "www.tybbtech.com" && (link.port == nil || link.port == 443) && link.user == nil && link.password == nil && legalPaths.contains(link.path)
+            let support = link.scheme == "mailto" && link.path == "service@tybbtech.com"
+            if legal || support { UIApplication.shared.open(link); decisionHandler(.cancel); return }
+        }
         let url = action.request.url
         decisionHandler(url?.scheme == "http" && url?.host == "127.0.0.1" && url?.port == Int(LocalServer.port) ? .allow : .cancel)
     }

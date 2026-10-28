@@ -55,6 +55,11 @@ public class TrainingActivity extends Activity {
             }
             @Override public boolean shouldOverrideUrlLoading(WebView v,WebResourceRequest req) {
                 Uri u=req.getUrl();
+                if(req.isForMainFrame() && req.hasGesture()) {
+                    boolean legal="https".equals(u.getScheme()) && "www.tybbtech.com".equals(u.getHost()) && (u.getPort()==-1 || u.getPort()==443) && u.getUserInfo()==null && java.util.Arrays.asList("/agent-arena/_t/futurehub-browser-20261018-v1/training-unified-20261018-v1/rivals-20261021-v1/yijiang/privacy.html","/agent-arena/_t/futurehub-browser-20261018-v1/training-unified-20261018-v1/rivals-20261021-v1/yijiang/terms.html","/agent-arena/_t/futurehub-browser-20261018-v1/training-unified-20261018-v1/rivals-20261021-v1/yijiang/delete-account.html").contains(u.getPath());
+                    boolean support="mailto".equals(u.getScheme()) && "service@tybbtech.com".equals(u.getSchemeSpecificPart());
+                    if(legal || support){try{startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,u));}catch(android.content.ActivityNotFoundException e){android.widget.Toast.makeText(TrainingActivity.this,"No app available to open this link.",android.widget.Toast.LENGTH_SHORT).show();}return true;}
+                }
                 return !"https".equals(u.getScheme()) || !"appassets.androidplatform.net".equals(u.getHost());
             }
             @Override public boolean onRenderProcessGone(WebView v,RenderProcessGoneDetail d) {
