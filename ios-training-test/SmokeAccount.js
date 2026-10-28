@@ -18,9 +18,9 @@
    if((await native('read')).session)throw Error('QA expected isolated empty Keychain');
    const fixture=JSON.stringify({fixture:'secure-storage-only'});await native('write',{session:fixture});if((await native('read')).session!==fixture)throw Error('Keychain roundtrip failed');await native('clear');if((await native('read')).session)throw Error('Keychain clear failed');window.__nativeAccountResult=previous;
    checks.push('Native Apple bridge and Keychain write/read/delete verified in isolated simulator');
-   for(const path of ['profile','cloud/list','cloud/download?revision=1']){const response=await fetch('https://stampday.tybbtech.com/yijiang/api/'+path);if(response.status!==401)throw Error('Native cloud path did not reach authenticated API: '+path+' status '+response.status);}
-   for(const path of ['profile','cloud/upload']){const response=await fetch('https://stampday.tybbtech.com/yijiang/api/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});if(response.status!==401)throw Error('Native cloud POST/CORS blocked: '+path);}
-   checks.push('WKWebView CSP allows profile and cloud GET/POST routes; unauthenticated requests reach API and are rejected401');
+   for(const path of ['profile','summaries/list']){const response=await fetch('https://stampday.tybbtech.com/yijiang/api/'+path);if(response.status!==401)throw Error('Native cloud path did not reach authenticated API: '+path+' status '+response.status);}
+   for(const path of ['profile','summaries/sync']){const response=await fetch('https://stampday.tybbtech.com/yijiang/api/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});if(response.status!==401)throw Error('Native cloud POST/CORS blocked: '+path);}
+   checks.push('WKWebView CSP allows profile and summary GET/POST routes; unauthenticated requests reach API and are rejected401');
 
    const api='https://stampday.tybbtech.com/yijiang/api/auth/';const r=await fetch(api+'capabilities');if(!r.ok||!(await r.json()).providers.includes('apple'))throw Error('Live API capability request failed');if((await fetch(api+'me')).status!==401)throw Error('Unauthenticated profile was not rejected');
    checks.push('WKWebView reaches live US account API with CORS; unauthenticated profile rejected');
