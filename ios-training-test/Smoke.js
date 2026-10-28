@@ -10,6 +10,13 @@
   await wait(()=>document.querySelectorAll('.mobile-nav button').length===5);
   checks.push('five navigation items rendered in WKWebView');
   const restored=JSON.parse(localStorage.getItem('native-qa-models')||'null');
+  if(!restored&&window.webkit?.messageHandlers?.nativeAssets){
+   const original=window.__arenaAssetsReady,pending=new Map();
+   window.__arenaAssetsReady=(id,ready)=>pending.has(id)?pending.get(id)(ready):original?.(id,ready);
+   const request=(test)=>new Promise((resolve,reject)=>{const id=crypto.randomUUID(),timer=setTimeout(()=>{pending.delete(id);reject(Error('Local service recovery timed out'));},15000);pending.set(id,ready=>{clearTimeout(timer);pending.delete(id);ready?resolve():reject(Error('Local service unavailable'));});window.webkit.messageHandlers.nativeAssets.postMessage({id,...(test?{test}:{})});});
+   try{await request('stop');await Promise.all([request(),request()]);const response=await fetch('./index.html',{cache:'no-store'});if(!response.ok)throw Error('Recovered local origin did not serve assets');checks.push('Native loopback service deliberately stopped and recovered through concurrent health requests; original origin retained');}finally{window.__arenaAssetsReady=original;}
+  }
+
   document.querySelectorAll('.mobile-nav button')[1].click();
   await wait(()=>document.querySelector('[aria-label="新棋手名称"]'));
   if(!restored){

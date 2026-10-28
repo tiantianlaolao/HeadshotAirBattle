@@ -10,6 +10,9 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         window.makeKeyAndVisible(); self.window = window
         return true
     }
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        (window?.rootViewController as? TrainingController)?.resume()
+    }
     func applicationWillResignActive(_ application: UIApplication) {
         (window?.rootViewController as? TrainingController)?.pause()
     }
@@ -27,6 +30,7 @@ final class TrainingController: UIViewController, WKNavigationDelegate, WKUIDele
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
         config.userContentController.add(self, name: "nativeFiles")
+        config.userContentController.add(self, name: "nativeAssets")
         accountBridge = AccountBridge(owner: self)
         config.userContentController.add(accountBridge!, name: "nativeAccount")
         #if DEBUG
@@ -53,6 +57,11 @@ final class TrainingController: UIViewController, WKNavigationDelegate, WKUIDele
         }} catch { showError() }
     }
     func pause() { web?.evaluateJavaScript("window.pauseForBackground&&window.pauseForBackground()", completionHandler: nil) }
+    func resume() {
+        guard web?.url != nil else { return }
+        web.evaluateJavaScript("window.dispatchEvent(new Event('app-foreground'))", completionHandler: nil)
+        server?.ensureAvailable { _ in }
+    }
     private func showError() {
         let label = UILabel(); label.text = "Unable to start local training. Please close and reopen the app."
         label.textColor = .white; label.numberOfLines = 0; label.frame = view.bounds.insetBy(dx: 24, dy: 80); view.addSubview(label)
@@ -61,7 +70,7 @@ final class TrainingController: UIViewController, WKNavigationDelegate, WKUIDele
         let url = action.request.url
         decisionHandler(url?.scheme == "http" && url?.host == "127.0.0.1" && url?.port == Int(LocalServer.port) ? .allow : .cancel)
     }
-    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { webView.reload() }
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { server?.ensureAvailable { ready in if ready { webView.reload() } } }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--smoke-test"), let url = Bundle.main.url(forResource: ProcessInfo.processInfo.arguments.contains("--account-smoke") ? "SmokeAccount" : "Smoke", withExtension: "js"), let script = try? String(contentsOf: url, encoding: .utf8) {
@@ -81,6 +90,15 @@ final class TrainingController: UIViewController, WKNavigationDelegate, WKUIDele
         guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.host == "127.0.0.1",
               message.frameInfo.securityOrigin.port == Int(LocalServer.port),
               let data = message.body as? [String: String], let id = data["id"] else { return }
+        if message.name == "nativeAssets", id.count <= 80, id.unicodeScalars.allSatisfy({ CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-")).contains($0) }) {
+            let respond: (Bool) -> Void = { [weak self] ready in self?.web.evaluateJavaScript("window.__arenaAssetsReady && window.__arenaAssetsReady('\(id)',\(ready ? "true" : "false"))", completionHandler: nil) }
+            #if DEBUG
+            if data["test"] == "stop", ProcessInfo.processInfo.arguments.contains("--smoke-test") {
+                server?.stopForRecoveryTest { respond(true) }; return
+            }
+            #endif
+            server?.ensureAvailable(completion: respond); return
+        }
         guard exportID == nil, presentedViewController == nil, id.count <= 80,
               let name = data["name"], name.count <= 160, name.hasSuffix(".json"),
               !name.contains("/"), !name.contains("\\"), !name.unicodeScalars.contains(where: { $0.value < 32 }),

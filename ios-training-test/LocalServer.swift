@@ -9,29 +9,81 @@ final class LocalServer {
     private let queue = DispatchQueue(label: "training.local-assets")
     private var listener: NWListener?
     init(root: URL) { self.root = root.resolvingSymlinksInPath() }
+    private var ready = false
+    private var starting = false
+    private var generation = 0
+    private var waiters: [(Bool) -> Void] = []
     func start(completion: @escaping (Bool) -> Void) throws {
-        let parameters = NWParameters.tcp
-        parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: NWEndpoint.Port(rawValue: Self.port)!)
-        let server = try NWListener(using: parameters)
-        listener = server
-        var reported = false
-        server.stateUpdateHandler = { state in
-            switch state {
-            case .ready:
-                if !reported { reported = true; DispatchQueue.main.async { completion(true) } }
-            case .failed:
-                if !reported { reported = true; DispatchQueue.main.async { completion(false) } }
-            default: break
-            }
-        }
-        server.newConnectionHandler = { [weak self] connection in
-            guard let self = self else { connection.cancel(); return }
-            connection.start(queue: self.queue)
-            self.receive(connection, buffered: Data())
-            self.queue.asyncAfter(deadline: .now() + 15) { connection.cancel() }
-        }
-        server.start(queue: queue)
+        queue.async { self.begin(completion) }
     }
+    private func finish(_ success: Bool) {
+        starting = false; ready = success
+        let callbacks = waiters; waiters.removeAll()
+        DispatchQueue.main.async { callbacks.forEach { $0(success) } }
+    }
+    private func begin(_ completion: @escaping (Bool) -> Void) {
+        if ready { DispatchQueue.main.async { completion(true) }; return }
+        waiters.append(completion)
+        if starting { return }
+        starting = true; generation += 1
+        let token = generation
+        listener?.cancel(); listener = nil
+        do {
+            let parameters = NWParameters.tcp
+            parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: NWEndpoint.Port(rawValue: Self.port)!)
+            parameters.allowLocalEndpointReuse = true
+            let server = try NWListener(using: parameters)
+            listener = server
+            server.stateUpdateHandler = { [weak self, weak server] state in
+                guard let self = self, self.generation == token else { return }
+                switch state {
+                case .ready: self.finish(true)
+                case .failed, .cancelled:
+                    self.generation += 1
+                    self.ready = false; self.listener = nil
+                    server?.cancel(); self.finish(false)
+                default: break
+                }
+            }
+            server.newConnectionHandler = { [weak self] connection in
+                guard let self = self else { connection.cancel(); return }
+                connection.start(queue: self.queue)
+                self.receive(connection, buffered: Data())
+                self.queue.asyncAfter(deadline: .now() + 15) { connection.cancel() }
+            }
+            server.start(queue: queue)
+            queue.asyncAfter(deadline: .now() + 5) { [weak self] in
+                guard let self = self, self.generation == token, self.starting else { return }
+                self.generation += 1; self.listener?.cancel(); self.listener = nil; self.finish(false)
+            }
+        } catch { finish(false) }
+    }
+    // Probe the actual loopback origin, not just a stale NWListener.ready flag.
+    func ensureAvailable(completion: @escaping (Bool) -> Void) {
+        queue.async {
+        let probeGeneration = self.generation
+        var request = URLRequest(url: URL(string: Self.origin + "/index.html")!)
+        request.cachePolicy = .reloadIgnoringLocalCacheData; request.timeoutInterval = 2
+        URLSession.shared.dataTask(with: request) { [weak self] _, response, error in
+            guard let self = self else { DispatchQueue.main.async { completion(false) }; return }
+            if error == nil, (response as? HTTPURLResponse)?.statusCode == 200 {
+                DispatchQueue.main.async { completion(true) }; return
+            }
+            self.queue.async {
+                if self.generation != probeGeneration && self.ready { DispatchQueue.main.async { completion(true) }; return }
+                if self.starting { self.waiters.append(completion); return }
+                self.ready = false; self.generation += 1
+                self.listener?.cancel(); self.listener = nil
+                self.begin(completion)
+            }
+        }.resume()
+        }
+    }
+    #if DEBUG
+    func stopForRecoveryTest(completion: @escaping () -> Void) {
+        queue.async { self.generation += 1; self.listener?.cancel(); self.listener = nil; self.finish(false); DispatchQueue.main.async { completion() } }
+    }
+    #endif
     private func receive(_ connection: NWConnection, buffered: Data) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 8192) { [weak self] data, _, complete, error in
             guard let self = self else { connection.cancel(); return }
