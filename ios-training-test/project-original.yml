@@ -8,6 +8,13 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.headshotairbattle
-        CURRENT_PROJECT_VERSION: 56
+        CURRENT_PROJECT_VERSION: 57
         MARKETING_VERSION: '1.1'
         INFOPLIST_KEY_CFBundleDisplayName: Yijiang
+    info:
+      properties:
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
