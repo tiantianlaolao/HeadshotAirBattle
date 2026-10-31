@@ -8,8 +8,8 @@ android {
         applicationId originalApp ? 'com.headshotairbattle' : 'com.headshotairbattle.mobiletest'
         minSdk 26
         targetSdk 36
-        versionCode originalApp ? Integer.parseInt(project.property('originalVersionCode')) : 20
-        versionName originalApp ? '1.1' : '0.2.18-integration'
+        versionCode originalApp ? Integer.parseInt(project.property('originalVersionCode')) : 21
+        versionName originalApp ? '1.1' : '0.2.19-integration'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     if(originalApp){
