@@ -9,7 +9,7 @@ android {
         minSdk 26
         targetSdk 36
         versionCode originalApp ? Integer.parseInt(project.property('originalVersionCode')) : 25
-        versionName originalApp ? '1.1' : '0.2.23-integration'
+        versionName originalApp ? (project.findProperty('originalVersionName') ?: '1.1') : '0.2.23-integration'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     if(originalApp){

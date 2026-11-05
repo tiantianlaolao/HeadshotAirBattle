@@ -8,7 +8,7 @@ on:
       version_code:
         description: 'Original app version code, recheck Play before uploading'
         required: true
-        default: '5'
+        default: '6'
         type: string
 permissions:
   contents: read
@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: skingway/headshot-training-private
-          ref: 117de74581b537535810c91d231a12798fb79d59
+          ref: b8852f8faca440902b9d2bc8c4cb58353904a82a
           ssh-key: ${{ secrets.TRAINING_READ_KEY }}
           persist-credentials: false
           path: private-module
@@ -45,7 +45,7 @@ jobs:
         env:
           YJ_UPLOAD_KEYSTORE: ${{ secrets.ANDROID_ORIGINAL_UPLOAD_KEYSTORE }}
           YJ_ORIGINAL_UPLOAD_PASSWORD: ${{ secrets.ANDROID_ORIGINAL_UPLOAD_PASSWORD }}
-          YJ_VERSION_CODE: ${{ inputs.version_code || '5' }}
+          YJ_VERSION_CODE: ${{ inputs.version_code || '6' }}
         run: |
           set -euo pipefail
           [[ "$YJ_VERSION_CODE" =~ ^[0-9]+$ ]] && test "$YJ_VERSION_CODE" -gt 4
@@ -54,7 +54,7 @@ jobs:
           export YJ_ORIGINAL_UPLOAD_KEYSTORE_PATH="$RUNNER_TEMP/original-upload.jks"
           ASSET_ARGUMENT=$(node -e "console.log(require(process.env.RUNNER_TEMP+'/staged.json').gradleProperty)")
           cd android-training-test
-          gradle --no-daemon --console=plain "$ASSET_ARGUMENT" -PoriginalApp -PoriginalVersionCode="$YJ_VERSION_CODE" bundleRelease > "$RUNNER_TEMP/build.log" 2>&1
+          gradle --no-daemon --console=plain "$ASSET_ARGUMENT" -PoriginalApp -PoriginalVersionName=1.2 -PoriginalVersionCode="$YJ_VERSION_CODE" bundleRelease > "$RUNNER_TEMP/build.log" 2>&1
       - name: Encrypt build and diagnostics
         if: always()
         shell: bash
