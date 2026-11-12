@@ -1,14 +1,11 @@
-name: iPhone private device test
+name: iPhone C materials device test
 on:
-  push:
-    branches: [codex/mobile-integration]
-    paths: ['.github/workflows/ios-device-test.yml']
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   device:
-    runs-on: macos-15
+    runs-on: macos-15-intel
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -17,13 +14,13 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: skingway/headshot-training-private
-          ref: f58c23e8915b69e7d8d2c2ad475cc5b791aad139
+          ref: b3fec89c9217eba0bc4ac791a7e26961a16890c1
           ssh-key: ${{ secrets.TRAINING_READ_KEY }}
           persist-credentials: false
           path: private-module
       - name: Stage private resources
         run: |
-          node scripts/stage-mobile-assets.mjs private-module/site-mobile > "$RUNNER_TEMP/staged.json"
+          node scripts/stage-mobile-assets.mjs private-module/site-mobile-c-test --c-test > "$RUNNER_TEMP/staged.json"
           ASSET_DIR=$(node -e "console.log(require(process.env.RUNNER_TEMP+'/staged.json').gradleProperty.slice(18))")
           mkdir -p ios-training-test/build
           cp -R "$ASSET_DIR" ios-training-test/build/site
@@ -54,7 +51,7 @@ jobs:
           security list-keychains -d user -s "$KEYCHAIN"
           cd ios-training-test
           xcodegen generate > "$RUNNER_TEMP/build.log" 2>&1
-          xcodebuild -project TrainingTest.xcodeproj -scheme TrainingTest -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -archivePath build/Test.xcarchive CODE_SIGNING_ALLOWED=YES YJ_SIGN_STYLE=Manual YJ_PROFILE="$PROFILE_UUID" CURRENT_PROJECT_VERSION=15 MARKETING_VERSION=0.2.15 archive >> "$RUNNER_TEMP/build.log" 2>&1
+          xcodebuild -project TrainingTest.xcodeproj -scheme TrainingTest -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -archivePath build/Test.xcarchive CODE_SIGNING_ALLOWED=YES YJ_SIGN_STYLE=Manual YJ_PROFILE="$PROFILE_UUID" CURRENT_PROJECT_VERSION=67 MARKETING_VERSION=1.2 'INFOPLIST_KEY_CFBundleDisplayName=Yijiang C Test' archive >> "$RUNNER_TEMP/build.log" 2>&1
           export PROFILE_UUID
           python3 - <<'PY'
           import os,plistlib
