@@ -1,3 +1,4 @@
+# iOS76: preserve pause requested before GPU interruption.
 name: Original App C progression device test
 on:
   workflow_dispatch:
@@ -14,7 +15,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: skingway/headshot-training-private
-          ref: 79f9a101c00d410641cdf0ba87fb68e96afbb700
+          ref: 0e43acf2b8879653a7ec08dd85a0371943cb2160
           ssh-key: ${{ secrets.TRAINING_READ_KEY }}
           persist-credentials: false
           path: private-module
