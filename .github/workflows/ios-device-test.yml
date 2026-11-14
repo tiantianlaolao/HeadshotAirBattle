@@ -14,7 +14,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: skingway/headshot-training-private
-          ref: c844058bb0e4d38f6b14c4a37c825fc6ee6995d7
+          ref: 225184ab9a7f6259bfdb9219a1f18e64903e75da
           ssh-key: ${{ secrets.TRAINING_READ_KEY }}
           persist-credentials: false
           path: private-module
@@ -69,7 +69,7 @@ jobs:
           security list-keychains -d user -s "$KEYCHAIN"
           cd ios-training-test
           xcodegen generate --spec project-original.yml > "$RUNNER_TEMP/build.log" 2>&1
-          xcodebuild -project TrainingTest.xcodeproj -scheme TrainingTest -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -archivePath build/Test.xcarchive CODE_SIGNING_ALLOWED=YES YJ_SIGN_STYLE=Manual YJ_PROFILE="$PROFILE_UUID" MARKETING_VERSION=1.2 CURRENT_PROJECT_VERSION=68 archive >> "$RUNNER_TEMP/build.log" 2>&1
+          xcodebuild -project TrainingTest.xcodeproj -scheme TrainingTest -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -archivePath build/Test.xcarchive CODE_SIGNING_ALLOWED=YES YJ_SIGN_STYLE=Manual YJ_PROFILE="$PROFILE_UUID" MARKETING_VERSION=1.2 CURRENT_PROJECT_VERSION=69 archive >> "$RUNNER_TEMP/build.log" 2>&1
           export PROFILE_UUID
           python3 - <<'PY'
           import os,plistlib
